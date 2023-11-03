@@ -28,7 +28,17 @@ def getScrobblesBetweenDates(userData,fromdate,todate):
     library=userData.get_recent_tracks(limit=None,time_from=datefromUNIX, time_to=datetoUNIX)
     return library
 
-    
+def getScrobblesBeforeDate(userData,todate):
+    """
+    Requires userData
+    """
+    dateto=datetime.datetime.strptime(todate,"%d/%m/%Y %H:%M:%S")
+    datetoUNIX=int(time.mktime(dateto.timetuple()))
+
+
+    library=userData.get_recent_tracks(limit=200,time_to=datetoUNIX)
+    return library
+
 def getScrobblesByYear(userdata,year):
     datefrom=f"01/01/{year}"
     dateto=f"01/01/{year+1}"
@@ -65,54 +75,119 @@ network = pylast.LastFMNetwork(
 userData = pylast.User(username, network)
 
 #first year is 2010
-yearList=list(range(2010,2024))
-
-
-scrobblelist=[]
+yearList=list(range(2023,2024))
 
 
 
+todate="21/10/2023 00:00:00"
+filename=None
 
-
+#errorReported=False
+#while not errorReported:
+#get dates to look between in UNIX 
 for year in yearList:
-    lib=getScrobblesByYear(userData,year)
+    scrobblelist=[]
+    datefrom=datetime.datetime.strptime(f"01/01/{year}","%d/%m/%Y")
+    datefromUNIX=int(time.mktime(datefrom.timetuple()))
+    #print(datefromUNIX)
+    dateto=datetime.datetime.strptime(f"01/01/{year+1}","%d/%m/%Y")
+    datetoUNIX=int(time.mktime(dateto.timetuple()))
+    #####
+    #get tracks played in year
+    lib=userData.get_recent_tracks(limit=None,time_from=datefromUNIX,time_to=datetoUNIX)
+    # if errorReported:
+    #     break
     for track in lib:
-        
-        
+            
+            
         tracktitle=track.track.title
         trackArtist=track.track.get_artist().name
         trackAlbum=track.album
-        trackAlternativeAlbum=track.track.get_album()
+        try:
+            trackAlternativeAlbum=track.track.get_album()
+        except:
+            trackAlternativeAlbum = None
         if trackAlternativeAlbum is None:
             trackAlternativeAlbum=""
             trackAlternativeAlbumArtist=""
         else:
-            trackAlternativeAlbum=track.track.get_album().title
-            trackAlternativeAlbumArtist=track.track.get_album().get_artist().name
+            try:
+                trackAlternativeAlbum=track.track.get_album().title
+                trackAlternativeAlbumArtist=track.track.get_album().get_artist().name
+            except:
+                print(f"{track.track.title} - {track.track.get_artist().name}")
+                trackAlternativeAlbum=""
+                trackAlternativeAlbumArtist=""
         
         
         scrobble={"Track":tracktitle,
-                  "Artist":trackArtist,
-                  "Album":track.album,
-                  "Album Artist": getAlbumArtist(trackArtist,track.album,network),
-                  'Alternative Album':trackAlternativeAlbum,
-                  'Alternative Album Artist':trackAlternativeAlbumArtist,
-                  'Scrobble Time': datefromtimecode(track.timestamp)
-                 
-                  
-                  
-                  
-                  }
+                    "Artist":trackArtist,
+                    "Album":track.album,
+                    "Album Artist": getAlbumArtist(trackArtist,track.album,network),
+                    'Alternative Album':trackAlternativeAlbum,
+                    'Alternative Album Artist':trackAlternativeAlbumArtist,
+                    'Scrobble Time': datefromtimecode(track.timestamp)
+                    
+                    
+                    
+                    
+                    }
         scrobblelist.append(scrobble)
-    break
-#get dates to look between in UNIX 
-
-n=datetime.datetime.now()
-datestr=n.strftime("%Y%m%d_%H%M%S")
-
-data=pd.DataFrame(scrobblelist)
-#exclude where artists are played this year
-data=data.sort_values(by="Scrobble Time")
+        
+    
+    #load in last got date
+    #run process with this date plus new date getScrobblesBetweenDates()
+    # get most recent date from library and pass back in
 
 
-data.to_csv(f"AllScrobbles_{datestr}.csv",index=None)
+
+    # for year in yearList:
+    #     lib=getScrobblesByYear(userData,year) # this will currently only get the last 200 of a year
+    #     for track in lib:
+            
+            
+    #         tracktitle=track.track.title
+    #         trackArtist=track.track.get_artist().name
+    #         trackAlbum=track.album
+    #         trackAlternativeAlbum=track.track.get_album()
+    #         if trackAlternativeAlbum is None:
+    #             trackAlternativeAlbum=""
+    #             trackAlternativeAlbumArtist=""
+    #         else:
+    #             try:
+    #                 trackAlternativeAlbum=track.track.get_album().title
+    #                 trackAlternativeAlbumArtist=track.track.get_album().get_artist().name
+    #             except:
+    #                 print(f"{track.track.title} - {track.track.get_artist().name}")
+    #                 trackAlternativeAlbum=""
+    #                 trackAlternativeAlbumArtist=""
+            
+            
+    #         scrobble={"Track":tracktitle,
+    #                   "Artist":trackArtist,
+    #                   "Album":track.album,
+    #                   "Album Artist": getAlbumArtist(trackArtist,track.album,network),
+    #                   'Alternative Album':trackAlternativeAlbum,
+    #                   'Alternative Album Artist':trackAlternativeAlbumArtist,
+    #                   'Scrobble Time': datefromtimecode(track.timestamp)
+                    
+                    
+                    
+                    
+    #                   }
+    #         scrobblelist.append(scrobble)
+    
+    data=pd.DataFrame(scrobblelist)
+    data=data.sort_values(by="Scrobble Time")
+    
+    n=datetime.datetime.now()
+    datestr=n.strftime("%Y%m%d_%H%M%S")
+    filename=f"AllScrobbles_{year}.csv"
+    data.to_csv(filename,index=None)
+
+    
+
+    
+
+
+    
