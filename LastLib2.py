@@ -9,6 +9,116 @@ https://stackoverflow.com/questions/2047814/is-it-possible-to-store-python-class
 """
 import sqlite3
 from datetime import datetime
+import pylast
+import time,os
+
+
+"""
+Existing Functionality:
+
+This section includes existing functions from the old Last Library Module
+"""
+def getNetwork():
+    """
+    Get LastFM network returns network and username
+    """
+    #api details
+    # You have to have your own unique two values for API_KEY and API_SECRET
+    # Obtain yours from https://www.last.fm/api/account/create for Last.fm
+    API_KEY = "e2630c64338004c988612946d2a12a44"  # this is a sample key
+    API_SECRET = "bb9d8b87ae6d5409f74b5cba14bcdf2b"
+
+    # In order to perform a write operation you need to authenticate yourself
+    username = "RobFarrington"
+    password_hash = pylast.md5("T0urmal=t")
+
+    network = pylast.LastFMNetwork(
+        api_key=API_KEY,
+        api_secret=API_SECRET,
+        username=username,
+        password_hash=password_hash,
+    )
+    return network,username
+
+def getUserData(network,username):
+    """
+    Get User Data from network and username
+    """
+    username = "RobFarrington"
+    userData = pylast.User(username, network)
+    return userData
+def datefromtimecode(unixstring):
+    """ 
+    Converts a Unixstring into a DateTime (UTC)
+    """
+    ts=int(unixstring)
+    return datetime.datetime.utcfromtimestamp(ts)
+
+def getAlbumArtist(artist,album,network):
+    """
+    gets an album Artist name from artist, album and network
+    """
+    album=pylast.Album(artist,album,network)
+    return album.get_artist().name
+def getScrobblesBetweenDates(userData,fromdate,todate):
+    """
+    Requires userData
+    Get all scrobbles between from and to date in dmy format.
+    """
+    datefrom=datetime.datetime.strptime(fromdate,"%d/%m/%Y")
+    datefromUNIX=int(time.mktime(datefrom.timetuple()))
+
+    dateto=datetime.datetime.strptime(todate,"%d/%m/%Y")
+    datetoUNIX=int(time.mktime(dateto.timetuple()))
+    library=userData.get_recent_tracks(limit=None,time_from=datefromUNIX, time_to=datetoUNIX)
+    return library
+
+def getScrobblesByYear(userdata,year):
+    """
+    get all scrobbles in a given year (int)
+    """
+    datefrom=f"01/01/{year}"
+    dateto=f"01/01/{year+1}"
+    library=getScrobblesBetweenDates(userdata,datefrom,dateto)
+    return library
+
+def scrobblesToList(network,lib):
+    scrobblelist=[]
+    artistsErrors={
+        'The Pretenders':'Pretenders',
+        'The Courteeners':'Courteeners',
+        'Goo Goo Dolls'	: 'The Goo Goo Dolls',
+        'The Nat King Cole Trio' :	'Nat King Cole Trio',
+        'The Sisters of Mercy':'Sisters of Mercy'
+        }
+    for track in lib:
+        
+        
+        tracktitle=track.track.title
+        trackArtist=track.track.get_artist().name
+        trackAlbum=track.album
+
+        # Consider a broader error processing module here. Maybe flag errors before entering library
+        if trackArtist in artistsErrors.keys():
+            trackArtist=artistsErrors[trackArtist]
+        
+        
+        
+        scrobble={"Track":tracktitle,
+                    "Artist":trackArtist,
+                    "Album":trackAlbum,
+                    "Album Artist": getAlbumArtist(trackArtist,trackAlbum,network),
+                    'Scrobble Time': datefromtimecode(track.timestamp),
+                    'Year': datefromtimecode(track.timestamp).year
+                    
+                    
+                    
+                    
+                    }
+        scrobblelist.append(scrobble)
+    data=pd.DataFrame(scrobblelist)
+
+    return data
 
 # Connect to SQLite database (or create it if it doesn't exist)
 def connectToDatabase(database):
@@ -16,7 +126,7 @@ def connectToDatabase(database):
     cursor = conn.cursor()
     return conn, cursor
 def createDatabase():
-    conn, cursor=connectToDatabase('lastScrobbles.db')
+    conn,cursor=connectToDatabase('lastScrobbles.db')
     
 
 
@@ -119,6 +229,6 @@ def add_scrobble(cursor,conn,artist_name, album_title, song_title,scrobble_time,
     conn.close()
 
 # Example usage
-add_scrobble('Artist Name', 'Album Title', 'Song Title')
+
 
 # Close the connection
