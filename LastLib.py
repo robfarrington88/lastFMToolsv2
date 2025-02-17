@@ -238,35 +238,35 @@ def annualCountsTable(df, fieldtype):
     s=s.sort_values(sortKeys,ascending=asKey)
 
     s.reset_index(inplace=True,drop=True)
-    if fieldtype=="Album":
-        #this to add
+    # if fieldtype=="Album":
+    #     #this to add
 
-        #the next phase of this is going to be get only for new albums.
-        #load in album Counts
-        countsTable=pd.read_csv('Album Annual Counts.csv')
+    #     #the next phase of this is going to be get only for new albums.
+    #     #load in album Counts
+    #     countsTable=pd.read_csv('Album Annual Counts.csv')
         
-        countsTable["ArtAlb"]=countsTable['Artist']+countsTable['Album']
-        countsTable=countsTable[['ArtAlb','TrackCount']]
+    #     countsTable["ArtAlb"]=countsTable['Artist']+countsTable['Album']
+    #     countsTable=countsTable[['ArtAlb','TrackCount']]
 
         
-        #s=s[['Artist','Album','Total']]
-        s["ArtAlb"]=s['Artist']+s['Album']
-        #mergeTables
-        checkTable=s.merge(countsTable, how='left',on='ArtAlb')
-        #at2=s[['Artist','Album']]
-        #at2=s.iloc[0:10,0:2]
-        missingTable=checkTable.loc[pd.isna(checkTable['TrackCount'])]
-        aadict=missingTable.to_dict()
-        artistDict=aadict['Artist']
-        albumDict=aadict['Album']
-        countdict={}
-        net,un=getNetwork()
-        for k,v in artistDict.items():
-            countdict[k]=addTrackCount(artistDict[k],albumDict[k],net,un)
-        countDF=pd.DataFrame({'Artist':artistDict,'Album':albumDict,'TrackCount':countdict})
-        countDF["ArtAlb"]=countDF['Artist']+countDF['Album']
-        checkTable.update(countDF)
-        s=checkTable[['Artist', 'Album', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024','2025', 'Total', 'TrackCount']]
+    #     #s=s[['Artist','Album','Total']]
+    #     s["ArtAlb"]=s['Artist']+s['Album']
+    #     #mergeTables
+    #     checkTable=s.merge(countsTable, how='left',on='ArtAlb')
+    #     #at2=s[['Artist','Album']]
+    #     #at2=s.iloc[0:10,0:2]
+    #     missingTable=checkTable.loc[pd.isna(checkTable['TrackCount'])]
+    #     aadict=missingTable.to_dict()
+    #     artistDict=aadict['Artist']
+    #     albumDict=aadict['Album']
+    #     countdict={}
+    #     net,un=getNetwork()
+    #     for k,v in artistDict.items():
+    #         countdict[k]=addTrackCount(artistDict[k],albumDict[k],net,un)
+    #     countDF=pd.DataFrame({'Artist':artistDict,'Album':albumDict,'TrackCount':countdict})
+    #     countDF["ArtAlb"]=countDF['Artist']+countDF['Album']
+    #     checkTable.update(countDF)
+    #     s=checkTable[['Artist', 'Album', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024','2025', 'Total', 'TrackCount']]
     return s
 
 def lastPlayed(df, fieldtype):
@@ -490,7 +490,7 @@ def updateAllYears():
 def joinAnnualReports():
     firstFile=True
     fulldf=None
-    folderpath=r"D:\Coding\GitHub\lastFMToolsv2"
+    folderpath=r"C:\Users\robfa\Documents\Coding\Github\lastFMToolsv2"
     dateparse = '%Y-%m-%d %H:%M:%S'
 
    
