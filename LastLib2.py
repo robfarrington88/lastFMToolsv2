@@ -8,7 +8,7 @@ Version 2 of the LastLib will include the following features:
 https://stackoverflow.com/questions/2047814/is-it-possible-to-store-python-class-objects-in-sqlite
 """
 import sqlite3
-from datetime import datetime
+import datetime
 import pylast
 import time,os
 
@@ -52,7 +52,9 @@ def datefromtimecode(unixstring):
     Converts a Unixstring into a DateTime (UTC)
     """
     ts=int(unixstring)
-    return datetime.datetime.utcfromtimestamp(ts)
+    return datetime.datetime.fromtimestamp(ts,datetime.timezone.utc)
+    
+
 
 def getAlbumArtist(artist,album,network):
     """
@@ -82,8 +84,8 @@ def getScrobblesByYear(userdata,year):
     library=getScrobblesBetweenDates(userdata,datefrom,dateto)
     return library
 
-def scrobblesToList(network,lib):
-    scrobblelist=[]
+def scrobblesToDB(network,lib):
+    #scrobblelist=[]
     artistsErrors={
         'The Pretenders':'Pretenders',
         'The Courteeners':'Courteeners',
@@ -91,6 +93,7 @@ def scrobblesToList(network,lib):
         'The Nat King Cole Trio' :	'Nat King Cole Trio',
         'The Sisters of Mercy':'Sisters of Mercy'
         }
+    conn,cursor=connectToDatabase('lastScrobbles.db')
     for track in lib:
         
         
@@ -115,16 +118,48 @@ def scrobblesToList(network,lib):
                     
                     
                     }
-        scrobblelist.append(scrobble)
-    data=pd.DataFrame(scrobblelist)
+        #add direct to database here?
+        
+        add_scrobble(cursor,scrobble['Artist'],scrobble['Album'],scrobble['Track'],scrobble['Scrobble Time'])
+    #data=pd.DataFrame(scrobblelist)
+    commitAndClose(conn)
+    return
+def getAnnualScrobblesToDB(year):
+    network,username=getNetwork()
+    ud=getUserData(network,username)
 
-    return data
+    #first year is 2010
+    if year<2010:
+        return
 
+
+
+    
+
+    #errorReported=False
+    #while not errorReported:
+    #get dates to look between in UNIX 
+   
+    
+    lib=getScrobblesByYear(ud,year)
+    # if errorReported:
+    #     break
+    scrobblesToDB(network,lib)
+    
+    
+    
+    
+    
+    
 # Connect to SQLite database (or create it if it doesn't exist)
 def connectToDatabase(database):
     conn = sqlite3.connect(database)
     cursor = conn.cursor()
     return conn, cursor
+def commitAndClose(conn):
+    conn.commit()
+    conn.close()
+
 def createDatabase():
     conn,cursor=connectToDatabase('lastScrobbles.db')
     
@@ -136,7 +171,7 @@ def createDatabase():
         id INTEGER PRIMARY KEY,
         name TEXT UNIQUE,
         rank_at INTEGER DEFAULT 0,
-        play_count INTEGER DEFAULT 0,
+        scrobbles INTEGER DEFAULT 0,
         first_played TEXT,
         last_played TEXT
     )
@@ -145,10 +180,10 @@ def createDatabase():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS album (
         id INTEGER PRIMARY KEY,
-        title TEXT UNIQUE,
+        title TEXT,
         artist_id INTEGER,
         rank_at INTEGER DEFAULT 0,
-        play_count INTEGER DEFAULT 0,
+        scrobbles INTEGER DEFAULT 0,
         first_played TEXT,
         last_played TEXT,
         FOREIGN KEY (artist_id) REFERENCES artist (id)
@@ -158,10 +193,10 @@ def createDatabase():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS song (
         id INTEGER PRIMARY KEY,
-        title TEXT UNIQUE,
+        title TEXT,
         artist_id INTEGER,
         album_id INTEGER,
-        play_count INTEGER DEFAULT 0,
+        scrobbles INTEGER DEFAULT 0,
         first_played TEXT,
         last_played TEXT,
         FOREIGN KEY (artist_id) REFERENCES artist (id),
@@ -183,52 +218,75 @@ def createDatabase():
     ''')
 
 # Function to add a scrobble
-def add_scrobble(cursor,conn,artist_name, album_title, song_title,scrobble_time,):
+def add_scrobble(cursor,artist_name, album_title, song_title,scrobble_time):
     # Get current timestamp
     #scrobble_time = datetime.now().isoformat()
 
     # Check if artist exists
-    cursor.execute('SELECT id, count FROM artist WHERE name = ?', (artist_name,))
+    cursor.execute('SELECT id, scrobbles, first_played, last_played FROM artist WHERE name = ?', (artist_name,))
     artist = cursor.fetchone()
     if artist:
-        artist_id, artist_count = artist
+        artist_id, artist_count, first_played,last_played = artist
+        fp=datetime.datetime.strptime(first_played,"%Y-%m-%d %H:%M:%S%z")
+        lp=datetime.datetime.strptime(last_played,"%Y-%m-%d %H:%M:%S%z")
         artist_count += 1
-        cursor.execute('UPDATE artist SET count = ?, last_played = ? WHERE id = ?', (artist_count, scrobble_time, artist_id))
+        if scrobble_time<fp:
+            
+            cursor.execute('UPDATE artist SET scrobbles = ?, first_played = ? WHERE id = ?', (artist_count, scrobble_time, artist_id))
+        elif scrobble_time>lp:
+            
+            cursor.execute('UPDATE artist SET scrobbles = ?, last_played = ? WHERE id = ?', (artist_count, scrobble_time, artist_id))
+        else:
+            cursor.execute('UPDATE artist SET scrobbles = ? WHERE id = ?', (artist_count, artist_id))
     else:
-        cursor.execute('INSERT INTO artist (name, count, first_played,last_played) VALUES (?, ?, ?)', (artist_name, 1,scrobble_time, scrobble_time))
+        cursor.execute('INSERT INTO artist (name, scrobbles, first_played,last_played) VALUES (?, ?, ?, ?)', (artist_name, 1,scrobble_time, scrobble_time))
         artist_id = cursor.lastrowid
 
     # Check if album exists
-    cursor.execute('SELECT id, count FROM album WHERE title = ?', (album_title,))
+    cursor.execute('SELECT id, scrobbles, first_played, last_played FROM album WHERE title = ? and artist_id = ?', (album_title,artist_id))
     album = cursor.fetchone()
-    if album and artist_id == album[1]:
-        album_id, album_count = album
+    if album:
+        album_id, album_count, first_played, last_played = album
+        fp=datetime.datetime.strptime(first_played,"%Y-%m-%d %H:%M:%S%z")
+        lp=datetime.datetime.strptime(last_played,"%Y-%m-%d %H:%M:%S%z")
         album_count += 1
-        cursor.execute('UPDATE album SET count = ?, last_played = ? WHERE id = ?', (album_count, scrobble_time, album_id))
+        if scrobble_time<fp:
+            
+            cursor.execute('UPDATE album SET scrobbles = ?, first_played = ? WHERE id = ?', (album_count, scrobble_time, album_id))
+        elif scrobble_time>lp:
+            
+            cursor.execute('UPDATE album SET scrobbles = ?, last_played = ? WHERE id = ?', (album_count, scrobble_time, album_id))
+        else:
+            cursor.execute('UPDATE album SET scrobbles = ? WHERE id = ?', (album_count, album_id))
     else:
-        cursor.execute('INSERT INTO album (title, artist_id, count, first_played,last_played) VALUES (?, ?, ?)', (album_title,artist_id, 1,scrobble_time, scrobble_time))
+        cursor.execute('INSERT INTO album (title, artist_id, scrobbles, first_played,last_played) VALUES (?, ?, ?, ?, ?)', (album_title,artist_id, 1,scrobble_time, scrobble_time))
         album_id = cursor.lastrowid
 
     # Check if song exists
-    cursor.execute('SELECT id, count FROM song WHERE title = ? AND artist_id = ? AND album_id = ?', (song_title, artist_id, album_id))
+    cursor.execute('SELECT id, scrobbles, first_played, last_played FROM song WHERE title = ? AND artist_id = ? AND album_id = ?', (song_title, artist_id, album_id))
     song = cursor.fetchone()
-    if song and artist_id == song[1]:
-        song_id, song_count = song
+    if song:
+        song_id, song_count,first_played,last_played = song
+        fp=datetime.datetime.strptime(first_played,"%Y-%m-%d %H:%M:%S%z")
+        lp=datetime.datetime.strptime(last_played,"%Y-%m-%d %H:%M:%S%z")
         song_count += 1
-        cursor.execute('UPDATE song SET count = ?, last_played = ? WHERE id = ?', (song_count, scrobble_time, song_id))
+        if scrobble_time<fp:
+            
+            cursor.execute('UPDATE song SET scrobbles = ?, first_played = ? WHERE id = ?', (song_count, scrobble_time, song_id))
+        elif scrobble_time>lp:
+            
+            cursor.execute('UPDATE song SET scrobbles = ?, last_played = ? WHERE id = ?', (song_count, scrobble_time, song_id))
+        else:
+
+            cursor.execute('UPDATE song SET scrobbles = ? WHERE id = ?', (song_count, song_id))
     else:
-        cursor.execute('INSERT INTO song (title, artist_id, album_id, count, first_played, last_played) VALUES (?, ?, ?, ?, ?)', 
+        cursor.execute('INSERT INTO song (title, artist_id, album_id, scrobbles, first_played, last_played) VALUES (?, ?, ?, ?, ?, ?)', 
                        (song_title, artist_id, album_id, 1, scrobble_time, scrobble_time))
         song_id = cursor.lastrowid
 
     # Add scrobble
-    cursor.execute('INSERT INTO scrobble (artist_id,album_id,song_id, timestamp) VALUES (?, ?)', (artist_id,album_id,song_id, scrobble_time))
+    cursor.execute('INSERT INTO scrobble (artist_id,album_id,song_id, timestamp) VALUES (?, ?, ?, ?)', (artist_id,album_id,song_id, scrobble_time))
 
-    # Commit changes
-    conn.commit()
-    conn.close()
+    
+    
 
-# Example usage
-
-
-# Close the connection
