@@ -3,21 +3,26 @@ import pylast
 import pandas as pd
 import datetime
 import time, os
+import json
 def datefromtimecode(unixstring):
     """ 
     Converts a Unixstring into a DateTime (UTC)
+
+    Ported to V2
     """
     ts=int(unixstring)
     return datetime.datetime.utcfromtimestamp(ts)
 
 def getAlbumArtist(artist,album,network):
     """
+    Ported to V2 
     gets an album Artist name from artist, album and network
     """
     album=pylast.Album(artist,album,network)
     return album.get_artist().name
 def getTrackLength(ms):
     """
+    Not used here
     Convert microsecond length of track into Min and Seconds as string
     """
     trackMin=ms//60000
@@ -27,6 +32,7 @@ def getTrackLength(ms):
 
 def getScrobblesBetweenDates(userData,fromdate,todate):
     """
+    Ported to V2
     Requires userData
     Get all scrobbles between from and to date in dmy format.
     """
@@ -39,12 +45,14 @@ def getScrobblesBetweenDates(userData,fromdate,todate):
     return library
 
 def findConsecutiveScrobbles(df):
+    """TO DO"""
     df=df.reset_index()
     df['check']=(df[['Track', 'Artist']] != df[['Track', 'Artist']].shift()).any(axis=1)
     df[df['check'] == False].to_csv("ConsecutiveScrobbles.csv")
     
 def getScrobblesBeforeDate(userData,todate):
     """
+    Not Used
     get all scrobbles before a given date in dmy hms format.  Currently limited to 200
     """
     dateto=datetime.datetime.strptime(todate,"%d/%m/%Y %H:%M:%S")
@@ -56,6 +64,7 @@ def getScrobblesBeforeDate(userData,todate):
 
 def getScrobblesByYear(userdata,year):
     """
+    Ported to V2
     get all scrobbles in a given year (int)
     """
     datefrom=f"01/01/{year}"
@@ -65,6 +74,7 @@ def getScrobblesByYear(userdata,year):
 
 def getArtistsAndPlayCounts(userdata):
     """
+    Not Used
     get all artists and playcounts from userdata
     """
     library=userdata.get_library().get_artists(limit=None)
@@ -72,6 +82,7 @@ def getArtistsAndPlayCounts(userdata):
 
 def newArtistDict(yearList,playcount):
     """
+    Not Used
     create a new artist dictionary for storing annualised artist counts - this should now  not be required
     """
     artist={"Total Count":playcount}
@@ -81,27 +92,26 @@ def newArtistDict(yearList,playcount):
     return artist
 def getNetwork():
     """
+    Ported to V2 API SECRET removed
     Get LastFM network returns network and username
     """
     #api details
     # You have to have your own unique two values for API_KEY and API_SECRET
     # Obtain yours from https://www.last.fm/api/account/create for Last.fm
-    API_KEY = "e2630c64338004c988612946d2a12a44"  # this is a sample key
-    API_SECRET = "bb9d8b87ae6d5409f74b5cba14bcdf2b"
-
-    # In order to perform a write operation you need to authenticate yourself
-    username = "RobFarrington"
-    password_hash = pylast.md5("T0urmal=t")
-
+    appsettings=os.path.join(os.path.dirname(__file__),"app.settings.json")
+    with open(appsettings) as f:
+        settings=json.load(f)
     network = pylast.LastFMNetwork(
-        api_key=API_KEY,
-        api_secret=API_SECRET,
-        username=username,
-        password_hash=password_hash,
-    )
+        api_key=settings['API_KEY'],
+        api_secret=settings['API_SECRET'],
+        username=settings['username'],
+        password_hash=pylast.md5(settings['password'])
+        )
+    username=settings['username']
     return network,username
 def getUserData(network,username):
     """
+    Ported to V2
     Get USerData from network and username
     """
     username = "RobFarrington"
@@ -109,6 +119,10 @@ def getUserData(network,username):
     return userData
 
 def scrobblesToList(network,lib):
+    """
+    Ported to V2 but changed for Database USe
+    """
+
     scrobblelist=[]
     artistsErrors={
         'The Pretenders':'Pretenders',
@@ -146,6 +160,7 @@ def scrobblesToList(network,lib):
 
 def getUpdate(filename):
     """
+    Ported to V2 Format
     Update a library CSV file from a filename which is datestamped. Returns the new data as a dataframe - feed into new item?
     """
     network,username=getNetwork()
@@ -165,6 +180,9 @@ def getUpdate(filename):
     #first year is 2010
 
 def updateFile(filename):
+    """
+    Not Required for V2
+    """
     import pytz
     #filename="AllScrobblesTo_20231103_120805.csv"
     df=getUpdate(filename)
@@ -194,7 +212,10 @@ def updateFile(filename):
     return updatedFilename,updateDF
 
 def loadDatabase(filename):
-    """ loads Database as a df from csv file"""
+    """ 
+    Not Required for V2
+    loads Database as a df from csv file
+    """
     
     dateparse = '%Y-%m-%d %H:%M:%S'
 
@@ -205,11 +226,15 @@ def loadDatabase(filename):
     return df
 
 def findBlanks(df):
+    """
+    To Do
+    """
     n=df.loc[df["Album"]==""]
     
     n.to_csv(f"Missing Album.csv")
 
 def setupSortingKeys(fieldtype):
+    """ Possibly to Do """
     keys=["Artist"]
     sortingLogic=[False,True]
     if fieldtype in ["Track","Album"]:
@@ -219,6 +244,7 @@ def setupSortingKeys(fieldtype):
 
 def annualCountsTable(df, fieldtype):
     """
+    To do/ adjust
     Gets annual counts for Album, Artist or Track required filenmae and either Artist"""
     
     
@@ -272,7 +298,9 @@ def annualCountsTable(df, fieldtype):
 def lastPlayed(df, fieldtype):
     keys,_=setupSortingKeys(fieldtype)
 
-    """ Gives last time each track, album, artist was played, compared with total counts. """
+    """ 
+    This has been done, but needs adjustment for reporting
+    Gives last time each track, album, artist was played, compared with total counts. """
     c=df.reset_index()
     a=c.groupby(keys).size().reset_index()
     b=c.groupby(keys).last().reset_index()
@@ -300,12 +328,14 @@ def lastPlayed(df, fieldtype):
     new.to_csv(fieldtype+"_LastPlayedReport.csv", index=False)
 
 def getAllAnnualCountsReports(filename):
+    """ To do """
     df=loadDatabase(filename)
     for key in ["Artist","Album","Track"]:
         pivot=annualCountsTable(df, key)
         pivot.to_csv(f"{key} Annual Counts.csv",index=False)
 
 def getNotPlayedDecade(df):
+    """ To do """
     keys=["Artist","Album","Track"]
     asKey=[True,True,True]
     
@@ -331,12 +361,14 @@ def getNotPlayedDecade(df):
     unplayed.to_csv(f"NotPlayed2020s.csv",index=False)
 
 def getNotPlayedCurrentYear(df,key,year):
+    """ To do """
     pivot=annualCountsTable(df, key)
     
     unplayed=pivot.loc[pivot[year]==0]
     return unplayed
 
 def getNotPlayedCurrentYearReports(filename):
+    """ To do """
     df=loadDatabase(filename)
     year=str(datetime.datetime.now().year)
     for key in ["Artist","Album","Track"]:
@@ -347,6 +379,7 @@ def getNotPlayedCurrentYearReports(filename):
 
 
 def deleteOldAllScrobbleFiles():
+    """ Not Required for V2 """
     currentfilename=getFileToUpdate()
     for root,dirs,files in os.walk(os.curdir):
         for filename in files:
@@ -354,6 +387,7 @@ def deleteOldAllScrobbleFiles():
                 os.remove(filename)
 
 def updateFilesandRefreshReports():
+    """ To Do - first two steps done """
     currentfilename=getFileToUpdate()
     newfilename,df=updateFile(currentfilename)
     for key in ["Artist","Album","Track"]:
@@ -376,6 +410,7 @@ def updateFilesandRefreshReports():
     reportPotentialErrors(df)
     
 def getFileToUpdate():
+    """ Not Required for V2 """
     latestdate=datetime.datetime.min
     for file in os.listdir(os.curdir):
         if "AllScrobblesTo" in file:
@@ -389,6 +424,7 @@ def getFileToUpdate():
     return filetouse
 
 def updateYearCSV(year):
+    """ Not Required for V2 """
     network,username=getNetwork()
     ud=getUserData(network,username)
 
@@ -419,6 +455,7 @@ def updateYearCSV(year):
 
 
 def duplicateAlbumsForTrack(df):
+    """ To Do """
     counts=pd.DataFrame(df.groupby(['Artist','Track'])['Album'].nunique())
     counts=counts.rename(columns={'Album':'Album Count'})
     multiple_albums=counts.loc[counts['Album Count']>1]
@@ -439,6 +476,7 @@ def duplicateAlbumsForTrack(df):
 
     
 def updateAllYears():
+    """ Not Required for V2 """
     network,username=getNetwork()
     ud=getUserData(network,username)
 
@@ -488,6 +526,7 @@ def updateAllYears():
     fulldf.to_csv("AllScrobblesTo_"+lastscrobble+".csv")
 
 def joinAnnualReports():
+    """ Not Required for V2 """
     firstFile=True
     fulldf=None
     folderpath=r"C:\Users\robfa\Documents\Coding\Github\lastFMToolsv2"
@@ -513,6 +552,7 @@ def joinAnnualReports():
     fulldf.to_csv("AllScrobblesTo_"+lastscrobble+".csv")
 
 def reportPotentialErrors(df2):
+    """ To Do  - may build into import functionality on future updates"""
     df=df2
     df['ErrorFound']=False
     df['TrackErrorFound']=False
@@ -592,6 +632,7 @@ def reportPotentialErrors(df2):
     df2.to_csv("PotentialErrors.csv")
 
 def getTracksInAlbums(df):
+    """ Will Likely look at how we manually update this in future """
     from datetime import datetime
     startTime = datetime.now()
     #the next phase of this is going to be get only for new albums.
@@ -629,13 +670,14 @@ def getTracksInAlbums(df):
     #order album in library by number 
     
 def applyMetric(x):
+    """ Not Used """
     if x['incompleteAlbum']:
         metric=0
     else:
         avPlays=['Track']
     
 def getLFAlbumTracks(artist,albumName,net,un):
-    
+    " Will not use in future as buggy"
     album=pylast.Album(artist,albumName,net,un,'info')
     tracks=[]
     try:
@@ -662,7 +704,7 @@ def getLFAlbumTracks(artist,albumName,net,un):
     return tracks
     
 def addTrackCount(artist,albumName,net,un):
-    
+    """ Consider Manual addtion of this in future """
     album=pylast.Album(artist,albumName,net,un,'info')
     try:
         trackCount=len(album.get_tracks())
@@ -685,6 +727,7 @@ def addTrackCount(artist,albumName,net,un):
     return trackCount
 
 def incompleteAlbums(df):
+    "Consider manual addition in future"
     #keys,asKey=ll.setupSortingKeys('Track')
     #s=(df.pivot_table(index=keys,columns="Album",aggfunc=['size'],sort=True).fillna(0).astype(int))
     frame=df.groupby(['Artist','Album'])['Track'].nunique()
@@ -738,6 +781,7 @@ def incompleteAlbums(df):
     incomplete.to_csv("SongsToPlay_byArtistCount.csv", index=False)
     
 def incompleteAlbums2(df):
+    "Consider manual addition in future"
     #keys,asKey=ll.setupSortingKeys('Track')
     #s=(df.pivot_table(index=keys,columns="Album",aggfunc=['size'],sort=True).fillna(0).astype(int))
     frame=df.groupby(['Artist','Album'])['Track'].nunique()
