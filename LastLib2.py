@@ -10,7 +10,8 @@ https://stackoverflow.com/questions/2047814/is-it-possible-to-store-python-class
 import sqlite3
 import datetime
 import pylast
-import time,os
+import time,os#
+import json
 
 
 """
@@ -25,19 +26,17 @@ def getNetwork():
     #api details
     # You have to have your own unique two values for API_KEY and API_SECRET
     # Obtain yours from https://www.last.fm/api/account/create for Last.fm
-    API_KEY = "e2630c64338004c988612946d2a12a44"  # this is a sample key
-    API_SECRET = "bb9d8b87ae6d5409f74b5cba14bcdf2b"
-
-    # In order to perform a write operation you need to authenticate yourself
-    username = "RobFarrington"
-    password_hash = pylast.md5("T0urmal=t")
-
+    
+    appsettings=os.path.join(os.path.dirname(__file__),"appsettings.json")
+    with open(appsettings) as f:
+        settings=json.load(f)
     network = pylast.LastFMNetwork(
-        api_key=API_KEY,
-        api_secret=API_SECRET,
-        username=username,
-        password_hash=password_hash,
-    )
+        api_key=settings['API_KEY'],
+        api_secret=settings['API_SECRET'],
+        username=settings['username'],
+        password_hash=pylast.md5(settings['password'])
+        )
+    username=settings['username']
     return network,username
 
 def getUserData(network,username):
