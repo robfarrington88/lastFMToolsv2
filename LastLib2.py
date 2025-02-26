@@ -27,7 +27,7 @@ def getNetwork():
     # You have to have your own unique two values for API_KEY and API_SECRET
     # Obtain yours from https://www.last.fm/api/account/create for Last.fm
     
-    appsettings=os.path.join(os.path.dirname(__file__),"appsettings.json")
+    appsettings=os.path.join(os.path.dirname(__file__),"app.settings.json")
     with open(appsettings) as f:
         settings=json.load(f)
     network = pylast.LastFMNetwork(
@@ -83,7 +83,7 @@ def getScrobblesByYear(userdata,year):
     library=getScrobblesBetweenDates(userdata,datefrom,dateto)
     return library
 
-def scrobblesToDB(network,lib):
+def scrobblesToDB(network,lib,conn,cursor):
     #scrobblelist=[]
     artistsErrors={
         'The Pretenders':'Pretenders',
@@ -92,7 +92,7 @@ def scrobblesToDB(network,lib):
         'The Nat King Cole Trio' :	'Nat King Cole Trio',
         'The Sisters of Mercy':'Sisters of Mercy'
         }
-    conn,cursor=connectToDatabase('lastScrobbles.db')
+    
     for track in lib:
         
         
@@ -143,12 +143,28 @@ def getAnnualScrobblesToDB(year):
     lib=getScrobblesByYear(ud,year)
     # if errorReported:
     #     break
-    scrobblesToDB(network,lib)
+    conn,cursor=connectToDatabase('lastScrobbles.db')
+    scrobblesToDB(network,lib,conn,cursor)
     
     
     
     
-    
+def getUpdate():
+    """
+    Update a library CSV file from a filename which is datestamped. Returns the new data as a dataframe - feed into new item?
+    """
+    network,username=getNetwork()
+    ud=getUserData(network,username)
+    conn,cursor=connectToDatabase('lastScrobbles.db')
+    #get last scrobble time
+    cursor.execute('SELECT MAX(timestamp) FROM scrobble')
+    lastScrobble=cursor.fetchone()    
+    datefrom=datetime.datetime.strptime(lastScrobble[0],"%Y-%m-%d %H:%M:%S%z")
+    datefromUNIX=int(time.mktime(datefrom.timetuple()))
+    dateto=datetime.datetime.now()
+    datetoUNIX=int(time.mktime(dateto.timetuple()))
+    lib=ud.get_recent_tracks(limit=None,time_from=datefromUNIX,time_to=datetoUNIX)
+    scrobblesToDB(network,lib,conn,cursor)
     
 # Connect to SQLite database (or create it if it doesn't exist)
 def connectToDatabase(database):
